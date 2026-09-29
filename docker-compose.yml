@@ -1,0 +1,96 @@
+# =====================================================================
+# Sistema de Gestão de Confeitaria — ambiente de desenvolvimento
+#
+#   docker compose up -d --build     sobe tudo
+#   docker compose logs -f api       acompanha logs da API
+#   docker compose down              para (mantém os dados)
+#   docker compose down -v           para e APAGA o banco (recria do zero)
+#
+# Portas no host (padrões fora de 3306/5173/8000/8080) — ajuste no .env
+# =====================================================================
+name: confeitaria
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: confeitaria_mysql
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=-03:00
+    environment:
+      TZ: America/Sao_Paulo
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${MYSQL_PORT:-3307}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # 127.0.0.1 força TCP: durante a carga dos scripts iniciais o MySQL
+      # roda sem rede, então só fica "healthy" depois que tudo carregou.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  adminer:
+    image: adminer:latest
+    container_name: confeitaria_adminer
+    restart: unless-stopped
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+    ports:
+      - "${ADMINER_PORT:-8081}:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  api:
+    build: ./backend
+    container_name: confeitaria_api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      TZ: America/Sao_Paulo
+      PORT: 3000
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5174}
+    ports:
+      # 0.0.0.0 = acessível por outros aparelhos da rede (ex.: celular)
+      - "${API_PORT:-3001}:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  web:
+    build: ./frontend
+    container_name: confeitaria_web
+    restart: unless-stopped
+    environment:
+      TZ: America/Sao_Paulo
+      VITE_API_PROXY_TARGET: http://api:3000
+      # true se o hot-reload não detectar alterações (comum no Windows)
+      VITE_USE_POLLING: ${VITE_USE_POLLING:-true}
+    ports:
+      - "${WEB_PORT:-5174}:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - api
+
+volumes:
+  mysql_data:
