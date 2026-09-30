@@ -1,28 +1,44 @@
-version: '3.8'
+# =====================================================================
+# Sistema de Gestão de Confeitaria — ambiente de desenvolvimento
+#
+#   docker compose up -d --build     sobe tudo
+#   docker compose logs -f api       acompanha logs da API
+#   docker compose down              para (mantém os dados)
+#   docker compose down -v           para e APAGA o banco (recria do zero)
+#
+# Portas no host (padrões fora de 3306/5173/8000/8080) — ajuste no .env
+# Sem .env, usa os valores padrão abaixo (mesmos do .env.example).
+# =====================================================================
+name: confeitaria
 
 services:
   mysql:
-    image: mysql:8.0
+    image: mysql:8.4
     container_name: confeitaria_mysql
     restart: unless-stopped
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=-03:00
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      TZ: America/Sao_Paulo
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-troque_root_123}
+      MYSQL_DATABASE: ${DB_NAME:-confeitaria}
+      MYSQL_USER: ${DB_USER:-confeitaria}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-troque_app_123}
     ports:
-      - "${MYSQL_PORT}:3306"
+      - "${MYSQL_PORT:-3307}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./database/init:/docker-entrypoint-initdb.d
-    networks:
-      - confeitaria_net
+      - ./database/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      # 127.0.0.1 força TCP: durante a carga dos scripts iniciais o MySQL
+      # roda sem rede, então só fica "healthy" depois que tudo carregou.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 30
+      start_period: 20s
 
   phpmyadmin:
     image: phpmyadmin:latest
@@ -33,46 +49,55 @@ services:
       PMA_PORT: 3306
       UPLOAD_LIMIT: 64M
     ports:
-      - "${PHPMYADMIN_PORT}:80"
+      - "${PHPMYADMIN_PORT:-8081}:80"
     depends_on:
-      - mysql
-    networks:
-      - confeitaria_net
+      mysql:
+        condition: service_healthy
 
-  # -- Backend (Node.js) - ativar quando começar essa etapa --
-  # api:
-  #   build: ./backend
-  #   container_name: confeitaria_api
-  #   restart: unless-stopped
-  #   environment:
-  #     DB_HOST: mysql
-  #     DB_PORT: 3306
-  #     DB_USER: ${DB_USER}
-  #     DB_PASSWORD: ${DB_PASSWORD}
-  #     DB_NAME: ${DB_NAME}
-  #   ports:
-  #     - "${API_PORT}:3000"
-  #   depends_on:
-  #     mysql:
-  #       condition: service_healthy
-  #   networks:
-  #     - confeitaria_net
+  # api e web só sobem com:  docker compose --profile app up -d --build
+  # (sem o perfil, `docker compose up -d` sobe apenas o banco e o phpMyAdmin)
+  api:
+    profiles: ["app"]
+    build: ./backend
+    container_name: confeitaria_api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      TZ: America/Sao_Paulo
+      PORT: 3000
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-confeitaria}
+      DB_USER: ${DB_USER:-confeitaria}
+      DB_PASSWORD: ${DB_PASSWORD:-troque_app_123}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5174}
+    ports:
+      # 0.0.0.0 = acessível por outros aparelhos da rede (ex.: celular)
+      - "${API_PORT:-3001}:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      mysql:
+        condition: service_healthy
 
-  # -- Frontend (React) - ativar quando começar essa etapa --
-  # web:
-  #   build: ./frontend
-  #   container_name: confeitaria_web
-  #   restart: unless-stopped
-  #   ports:
-  #     - "${WEB_PORT}:5173"
-  #   depends_on:
-  #     - api
-  #   networks:
-  #     - confeitaria_net
+  web:
+    profiles: ["app"]
+    build: ./frontend
+    container_name: confeitaria_web
+    restart: unless-stopped
+    environment:
+      TZ: America/Sao_Paulo
+      VITE_API_PROXY_TARGET: http://api:3000
+      # true se o hot-reload não detectar alterações (comum no Windows)
+      VITE_USE_POLLING: ${VITE_USE_POLLING:-true}
+    ports:
+      - "${WEB_PORT:-5174}:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - api
 
 volumes:
   mysql_data:
-
-networks:
-  confeitaria_net:
-    driver: bridge
