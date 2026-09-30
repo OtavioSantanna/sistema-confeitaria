@@ -54,10 +54,7 @@ services:
       mysql:
         condition: service_healthy
 
-  # api e web só sobem com:  docker compose --profile app up -d --build
-  # (sem o perfil, `docker compose up -d` sobe apenas o banco e o phpMyAdmin)
   api:
-    profiles: ["app"]
     build: ./backend
     container_name: confeitaria_api
     restart: unless-stopped
@@ -81,8 +78,9 @@ services:
       mysql:
         condition: service_healthy
 
+  # Frontend: só sobe com  docker compose --profile web up -d --build
   web:
-    profiles: ["app"]
+    profiles: ["web"]
     build: ./frontend
     container_name: confeitaria_web
     restart: unless-stopped
