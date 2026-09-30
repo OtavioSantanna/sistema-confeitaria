@@ -78,9 +78,7 @@ services:
       mysql:
         condition: service_healthy
 
-  # Frontend: só sobe com  docker compose --profile web up -d --build
   web:
-    profiles: ["web"]
     build: ./frontend
     container_name: confeitaria_web
     restart: unless-stopped
