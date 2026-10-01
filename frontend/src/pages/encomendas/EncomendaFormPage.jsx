@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ChevronRight, Package, Plus, Trash2, User } from 'lucide-react';
 import { Pagina } from '../../components/Layout.jsx';
 import { Campo } from '../../components/Campos.jsx';
@@ -15,6 +15,9 @@ export function EncomendaFormPage() {
   const editando = Boolean(id);
   const navigate = useNavigate();
   const toast = useToast();
+  // ?adicionar=1 (vindo de "Adicionar item") abre direto a lista de produtos.
+  const [params] = useSearchParams();
+  const abrirAdicionar = params.get('adicionar') === '1';
 
   const [carregando, setCarregando] = useState(editando);
   const [erro, setErro] = useState(null);
@@ -54,6 +57,7 @@ export function EncomendaFormPage() {
           })),
         );
       })
+      .then(() => abrirAdicionar && setSheetItem({ aberto: true, item: null }))
       .catch(setErro)
       .finally(() => setCarregando(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps

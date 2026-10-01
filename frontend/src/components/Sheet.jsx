@@ -2,19 +2,26 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
-let abertos = 0;
+// Pilha de modais abertos: o ESC fecha só o de cima.
+const pilha = [];
 
 // Painel que sobe de baixo no celular e vira diálogo centralizado no PC.
 export function Sheet({ aberto, onFechar, titulo, children, rodape, alta = false }) {
   useEffect(() => {
     if (!aberto) return undefined;
-    abertos += 1;
+    const id = Symbol('sheet');
+    pilha.push(id);
     document.body.style.overflow = 'hidden';
-    const esc = (e) => e.key === 'Escape' && onFechar?.();
+    const esc = (e) => {
+      if (e.key === 'Escape' && pilha[pilha.length - 1] === id) {
+        e.stopImmediatePropagation();
+        onFechar?.();
+      }
+    };
     window.addEventListener('keydown', esc);
     return () => {
-      abertos -= 1;
-      if (abertos === 0) document.body.style.overflow = '';
+      pilha.splice(pilha.indexOf(id), 1);
+      if (pilha.length === 0) document.body.style.overflow = '';
       window.removeEventListener('keydown', esc);
     };
   }, [aberto, onFechar]);

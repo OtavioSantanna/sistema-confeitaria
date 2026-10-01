@@ -95,6 +95,7 @@ export function MovimentoSheet({ ingrediente, operacao, onFechar, onFeito }) {
       ) : confirmando ? (
         <div className="form">
           <p style={{ fontSize: '1.1rem' }}>
+            {!entrada && depois === 0 && <><b>Zerar o estoque.</b><br /></>}
             {entrada ? 'Adicionar' : tipo === 'perda' ? 'Registrar perda de' : 'Dar baixa de'}{' '}
             <b>{qtd(parseDecimal(quantidade), u?.codigo)}</b>
             {u?.id !== detalhe.unidadeEstoqueId && <> ({qtd(convertida, uEstoque)})</>} de <b>{detalhe.nome}</b>?
@@ -132,6 +133,12 @@ export function MovimentoSheet({ ingrediente, operacao, onFechar, onFeito }) {
               </select>
             </div>
             {convertida != null && u?.id !== detalhe.unidadeEstoqueId && <small>= {qtd(convertida, uEstoque)}</small>}
+            {!entrada && (
+              <button type="button" className="btn btn-sm btn-perigo" style={{ justifySelf: 'start' }} disabled={atual <= 0}
+                onClick={() => { setUnidadeId(detalhe.unidadeEstoqueId); setQuantidade(String(atual)); }}>
+                Baixar tudo ({qtd(atual, uEstoque)})
+              </button>
+            )}
           </div>
           {entrada && (
             <Campo rotulo="Valor pago (opcional)">

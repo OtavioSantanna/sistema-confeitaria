@@ -398,3 +398,23 @@ a { color: var(--primaria-escura); }
 .info { display: flex; align-items: center; gap: 8px; color: var(--texto-suave); font-size: 0.92rem; }
 .acoes-status { display: grid; gap: 8px; }
 @media (min-width: 700px) { .acoes-status { grid-auto-flow: column; grid-auto-columns: 1fr; } }
+
+/* Rodapé de formulário dentro de modal */
+.rodape-acoes.rodape-sheet {
+  bottom: -16px; margin: 20px -20px -16px; padding: 12px 20px 16px;
+  background: var(--fundo); border-top: 1px solid var(--borda);
+}
+
+/* Linha de escolha de componente (massa, recheio, cobertura…) */
+.escolha {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  min-height: 60px; padding: 10px 14px; border-radius: 12px;
+  border: 1px solid var(--borda); background: var(--superficie);
+  text-align: left; cursor: pointer;
+}
+.escolha:hover { border-color: var(--rosa-claro); }
+.escolha .rotulo { font-size: 0.78rem; font-weight: 800; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 0.4px; }
+.escolha .valor { font-weight: 800; }
+.escolha .valor.vazio { color: var(--primaria); }
+.escolha.pendente { border-style: dashed; border-color: var(--primaria); }
+.item-busca.selecionado { background: var(--creme); box-shadow: inset 0 0 0 2px var(--primaria); }

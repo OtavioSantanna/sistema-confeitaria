@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Cake, Candy } from 'lucide-react';
+import { ArrowLeft, Cake, Candy, ChevronRight, Plus } from 'lucide-react';
 import { Sheet } from '../../components/Sheet.jsx';
 import { ListaBusca } from '../../components/ListaBusca.jsx';
 import { Campo, Stepper } from '../../components/Campos.jsx';
 import { Carregando, Erro } from '../../components/Estados.jsx';
 import { produtos as produtosApi } from '../../api/index.js';
 import { decimalValido, dinheiro, parseDecimal } from '../../lib/format.js';
+import { ProdutoFormSheet } from '../receitas/ProdutoForm.jsx';
+import { ComponenteSheet } from './ComponenteSheet.jsx';
 
 // Passo 1: escolher o produto (lista com busca).
 // Passo 2: tamanho, sabores (componentes) e quantidade.
@@ -18,10 +20,14 @@ export function ProdutoItemSheet({ aberto, onFechar, itemInicial, onConfirmar })
   const [quantidade, setQuantidade] = useState('1');
   const [observacoes, setObservacoes] = useState('');
   const [carregandoProduto, setCarregandoProduto] = useState(false);
+  const [novoProduto, setNovoProduto] = useState(null); // nome sugerido ao cadastrar produto
+  const [compAberto, setCompAberto] = useState(null); // componente sendo escolhido no modal
 
   useEffect(() => {
     if (!aberto) return;
     setErro(null);
+    setNovoProduto(null);
+    setCompAberto(null);
     produtosApi.listar({ ativo: true }).then(setLista).catch(setErro);
     if (itemInicial) {
       abrirProduto(itemInicial.produtoId, itemInicial);
@@ -99,8 +105,9 @@ export function ProdutoItemSheet({ aberto, onFechar, itemInicial, onConfirmar })
   const titulo = produto ? produto.nome : 'Adicionar produto';
 
   return (
+    <>
     <Sheet
-      aberto={aberto}
+      aberto={aberto && novoProduto === null && !compAberto}
       onFechar={onFechar}
       titulo={titulo}
       alta
@@ -123,7 +130,12 @@ export function ProdutoItemSheet({ aberto, onFechar, itemInicial, onConfirmar })
             texto={(p) => `${p.nome} ${p.descricao ?? ''}`}
             placeholder="Buscar produto…"
             onSelecionar={(p) => abrirProduto(p.id)}
-            vazio="Nenhum produto encontrado. Cadastre produtos em Receitas › Produtos."
+            vazio="Nenhum produto encontrado. Cadastre acima."
+            acao={(termo) => (
+              <button type="button" className="btn btn-contorno btn-bloco" onClick={() => setNovoProduto(termo)}>
+                <Plus size={18} /> Cadastrar {termo ? `“${termo}”` : 'novo produto'}
+              </button>
+            )}
             renderItem={(p) => (
               <>
                 <span className="avatar">{p.modoCalculo === 'tamanho' ? <Cake size={20} /> : <Candy size={20} />}</span>
@@ -167,27 +179,29 @@ export function ProdutoItemSheet({ aberto, onFechar, itemInicial, onConfirmar })
             </div>
           )}
 
-          {componentesVisiveis.map((c) => (
-            <div className="campo" key={c.id}>
-              <span>{c.nome}{!c.obrigatorio && ' (opcional)'}</span>
-              <div className="opcoes">
-                {!c.obrigatorio && (
-                  <button type="button" className={`opcao ${!escolhas[c.id] ? 'ativo' : ''}`}
-                    onClick={() => setEscolhas({ ...escolhas, [c.id]: null })}>
-                    Sem {c.nome.toLowerCase()}
-                  </button>
-                )}
-                {c.opcoes.map((o) => (
-                  <button key={o.receitaId} type="button" aria-pressed={escolhas[c.id] === o.receitaId}
-                    className={`opcao ${escolhas[c.id] === o.receitaId ? 'ativo' : ''}`}
-                    onClick={() => setEscolhas({ ...escolhas, [c.id]: o.receitaId })}>
-                    {o.receita}
-                    {Number(o.precoAdicional) > 0 && <small>+ {dinheiro(o.precoAdicional)}</small>}
-                  </button>
-                ))}
+          {componentesVisiveis.length > 0 && (
+            <div className="campo">
+              <span>Sabores</span>
+              <div className="lista" style={{ gap: 8 }}>
+                {componentesVisiveis.map((c) => {
+                  const op = c.opcoes.find((o) => o.receitaId === escolhas[c.id]);
+                  const pendente = c.obrigatorio && !op;
+                  return (
+                    <button key={c.id} type="button" className={`escolha ${pendente ? 'pendente' : ''}`} onClick={() => setCompAberto(c)}>
+                      <span className="cresce">
+                        <span className="rotulo" style={{ display: 'block' }}>{c.nome}{!c.obrigatorio && ' (opcional)'}</span>
+                        <span className={`valor ${op ? '' : 'vazio'}`}>
+                          {op ? op.receita : c.obrigatorio ? `Escolher ${c.nome.toLowerCase()}` : `Sem ${c.nome.toLowerCase()}`}
+                        </span>
+                        {op && Number(op.precoAdicional) > 0 && <span className="suave mini"> + {dinheiro(op.precoAdicional)}</span>}
+                      </span>
+                      <ChevronRight size={20} color="var(--texto-suave)" />
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          ))}
+          )}
 
           <div className="campo">
             <span>Quantidade</span>
@@ -202,5 +216,28 @@ export function ProdutoItemSheet({ aberto, onFechar, itemInicial, onConfirmar })
         </div>
       )}
     </Sheet>
+
+    <ProdutoFormSheet
+      aberto={aberto && novoProduto !== null}
+      nomeInicial={novoProduto ?? ''}
+      onFechar={() => setNovoProduto(null)}
+      onSalvo={(p) => {
+        setNovoProduto(null);
+        produtosApi.listar({ ativo: true }).then(setLista).catch(() => {});
+        abrirProduto(p.id);
+      }}
+    />
+    <ComponenteSheet
+      produto={produto}
+      componente={aberto ? compAberto : null}
+      selecionada={compAberto ? escolhas[compAberto.id] : null}
+      onFechar={() => setCompAberto(null)}
+      onEscolher={(receitaId, atualizado) => {
+        if (atualizado) setProduto(atualizado);
+        setEscolhas((e) => ({ ...e, [compAberto.id]: receitaId }));
+        setCompAberto(null);
+      }}
+    />
+    </>
   );
 }

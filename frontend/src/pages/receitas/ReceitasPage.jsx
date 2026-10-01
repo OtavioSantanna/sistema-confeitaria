@@ -47,7 +47,9 @@ function ListaReceitas() {
               <button key={r.id} type="button" className="card card-clicavel" onClick={() => navigate(`/receitas/${r.id}`)}>
                 <p className="titulo-card">{r.nome}</p>
                 <p className="suave">
-                  Rende {num(r.rendimentoQuantidade)} {r.rendimentoUnidade} · {r.totalIngredientes} ingredientes
+                  {r.totalPartes > 0
+                    ? `${r.totalPartes} ${r.totalPartes === 1 ? 'parte' : 'partes'}${r.totalIngredientes ? ` + ${r.totalIngredientes} ingredientes` : ''}`
+                    : `Rende ${num(r.rendimentoQuantidade)} ${r.rendimentoUnidade} · ${r.totalIngredientes} ingredientes`}
                 </p>
               </button>
             ))}

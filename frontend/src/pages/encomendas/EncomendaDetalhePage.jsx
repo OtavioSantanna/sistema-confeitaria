@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CalendarClock, Pencil, Phone, ShoppingCart, StickyNote, Trash2 } from 'lucide-react';
+import { CalendarClock, Pencil, Phone, Plus, ShoppingCart, StickyNote, Trash2 } from 'lucide-react';
 import { Pagina } from '../../components/Layout.jsx';
 import { Carregando, Erro, StatusBadge } from '../../components/Estados.jsx';
 import { Confirmar } from '../../components/Sheet.jsx';
@@ -123,7 +123,14 @@ export function EncomendaDetalhePage() {
       )}
 
       <section className="secao">
-        <div className="secao-titulo"><span>Itens</span></div>
+        <div className="secao-titulo">
+          <span>Itens</span>
+          {e.status === 'orcamento' && (
+            <button type="button" className="btn btn-sm btn-primario" onClick={() => navigate(`/encomendas/${id}/editar?adicionar=1`)}>
+              <Plus size={18} /> Adicionar item
+            </button>
+          )}
+        </div>
         <div className="card card-lista">
           {e.itens.map((i) => (
             <div key={i.id} className="item-linha">
@@ -145,6 +152,12 @@ export function EncomendaDetalhePage() {
             <b>{dinheiro(e.valorTotal)}</b>
           </div>
         </div>
+        {e.status === 'orcamento' && (
+          <button type="button" className="btn btn-contorno btn-bloco" style={{ marginTop: 10 }}
+            onClick={() => navigate(`/encomendas/${id}/editar`)}>
+            <Pencil size={18} /> Editar encomenda (itens, data, cliente)
+          </button>
+        )}
       </section>
 
       {(ACOES[e.status].length > 0 || CANCELAVEL.includes(e.status)) && (
