@@ -1,0 +1,160 @@
+### =================================================================
+### Exemplos de requisições — abra no VS Code com a extensão
+### "REST Client" (humao.rest-client) e clique em "Send Request".
+### Usa os dados de exemplo do banco (database/init/03-dados-exemplo.sql).
+### =================================================================
+@api = http://localhost:3001/api/v1
+
+### Saúde
+GET {{api}}/health
+
+### ------------------------- Auxiliares -------------------------
+GET {{api}}/unidades
+###
+GET {{api}}/tipos-receita
+###
+GET {{api}}/tamanhos
+###
+POST {{api}}/tamanhos
+Content-Type: application/json
+
+{ "nome": "35 cm", "descricao": "Redondo — serve ~60 fatias", "ordem": 5 }
+
+### ------------------------- Ingredientes -------------------------
+GET {{api}}/ingredientes?busca=leite
+###
+GET {{api}}/ingredientes?abaixoMinimo=true
+###
+GET {{api}}/ingredientes/1
+###
+# Unidade de estoque: g (id 1). Conversão: 1 xícara (id 5) = 100 g.
+POST {{api}}/ingredientes
+Content-Type: application/json
+
+{
+  "nome": "Coco ralado",
+  "unidadeEstoqueId": 1,
+  "estoqueMinimo": 200,
+  "embalagemQuantidade": 100,
+  "embalagemDescricao": "pacote 100 g",
+  "conversoes": [{ "unidadeId": 5, "quantidade": 100 }],
+  "estoqueInicial": 300
+}
+
+### ------------------------- Clientes -------------------------
+GET {{api}}/clientes?busca=maria
+###
+POST {{api}}/clientes
+Content-Type: application/json
+
+{ "nome": "João Silva", "telefone": "(11) 98888-7777" }
+
+### ------------------------- Receitas -------------------------
+GET {{api}}/receitas
+###
+GET {{api}}/receitas/1
+###
+# Simular: ?fator=2  |  ?tamanhoId=4  |  ?quantidade=300 (usa o rendimento)
+GET {{api}}/receitas/6/calculo?quantidade=300
+###
+GET {{api}}/receitas/1/calculo?tamanhoId=4
+###
+# @name novaReceita
+POST {{api}}/receitas
+Content-Type: application/json
+
+{
+  "nome": "Beijinho",
+  "tipoReceitaId": 5,
+  "rendimentoQuantidade": 50,
+  "rendimentoUnidadeId": 8,
+  "modoPreparo": "Cozinhar tudo em fogo baixo até desgrudar da panela.",
+  "ingredientes": [
+    { "ingredienteId": 9,  "quantidade": 2,  "unidadeId": 10 },
+    { "ingredienteId": 6,  "quantidade": 1,  "unidadeId": 6 }
+  ]
+}
+
+### ------------------------- Produtos -------------------------
+GET {{api}}/produtos
+###
+GET {{api}}/produtos/1
+###
+# Produto simples por rendimento (1 componente, 1 receita).
+# Usa o id da receita criada na requisição "novaReceita" acima.
+POST {{api}}/produtos
+Content-Type: application/json
+
+{
+  "nome": "Beijinho",
+  "tipo": "simples",
+  "modoCalculo": "rendimento",
+  "precoBase": 2.5,
+  "componentes": [{ "nome": "Beijinho", "opcoes": [{ "receitaId": {{novaReceita.response.body.id}} }] }]
+}
+
+### ------------------------- Encomendas -------------------------
+GET {{api}}/encomendas?status=orcamento,confirmada
+###
+GET {{api}}/encomendas/1
+###
+GET {{api}}/encomendas/1/ingredientes
+###
+# Bolo 25 cm (massa branca + recheio brigadeiro + cobertura padrão) + 200 brigadeiros.
+# Componentes omitidos usam a opção padrão; preço omitido usa o cadastro.
+POST {{api}}/encomendas
+Content-Type: application/json
+
+{
+  "clienteId": 1,
+  "dataEntrega": "2026-10-20 14:00",
+  "observacoes": "Retirada no local",
+  "itens": [
+    {
+      "produtoId": 1,
+      "tamanhoId": 3,
+      "quantidade": 1,
+      "observacoes": "Escrever: Feliz aniversário, Pedro",
+      "componentes": [
+        { "componenteId": 1, "receitaId": 2 },
+        { "componenteId": 2, "receitaId": 4 }
+      ]
+    },
+    { "produtoId": 2, "quantidade": 200 }
+  ]
+}
+
+###
+# orcamento -> confirmada: grava o snapshot e reserva os ingredientes
+PATCH {{api}}/encomendas/1/status
+Content-Type: application/json
+
+{ "status": "confirmada", "observacao": "Sinal de 50% pago" }
+
+###
+# confirmada -> em_producao: dá baixa no estoque
+PATCH {{api}}/encomendas/1/status
+Content-Type: application/json
+
+{ "status": "em_producao" }
+
+### ------------------------- Lista de compras -------------------------
+# Encomendas confirmadas com entrega no período
+GET {{api}}/lista-compras?de=2026-10-01&ate=2026-10-31
+###
+# Incluindo orçamentos e repondo o estoque mínimo
+GET {{api}}/lista-compras?incluirOrcamentos=true&considerarEstoqueMinimo=true
+###
+# Encomendas específicas
+GET {{api}}/lista-compras?encomendaIds=1,2&incluirOrcamentos=true
+
+### ------------------------- Estoque -------------------------
+GET {{api}}/estoque
+###
+GET {{api}}/estoque/movimentacoes?ingredienteId=9
+###
+# Compra de 6 latas de leite condensado (convertidas para g)
+POST {{api}}/estoque/movimentacoes
+Content-Type: application/json
+
+{ "ingredienteId": 9, "tipo": "entrada", "quantidade": 6, "unidadeId": 10, "custoTotal": 42.90 }
